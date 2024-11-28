@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma
+prisma/*.db
+prisma/migrations/
+
+# Test files
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+temp/
+.temp/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Custom scripts
+test-api.bat
+test-api.sh
+setup-prisma.js
+generate-secret.js

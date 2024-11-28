@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  role          Role      @default(STUDENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  enrollments   Enrollment[]
+  teachingCourses Course[] @relation("Instructor")
+  progress     Progress[]
+}
+
+model Course {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  category    Category
+  instructorId String
+  instructor  User      @relation("Instructor", fields: [instructorId], references: [id])
+  content     Json?
+  published   Boolean   @default(false)
+  sections    Section[]
+  materials   Material[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  enrollments Enrollment[]
+}
+
+model Section {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([courseId])
+  @@unique([courseId, order])
+}
+
+model Lesson {
+  id        String   @id @default(cuid())
+  title     String
+  type      String   @default("TEXT")
+  content   Json?    @default("{}")
+  order     Int      @default(0)
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress  Progress[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+}
+
+model Material {
+  id        String    @id @default(cuid())
+  title     String
+  type      MaterialType
+  url       String
+  courseId  String
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Progress {
+  id        String    @id @default(cuid())
+  userId    String
+  lessonId  String
+  completed Boolean   @default(false)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson    Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model Enrollment {
+  id        String    @id @default(cuid())
+  userId    String
+  courseId  String
+  progress  Float     @default(0)
+  status    Status    @default(IN_PROGRESS)
+  user      User      @relation(fields: [userId], references: [id])
+  course    Course    @relation(fields: [courseId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+enum Role {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+}
+
+enum Category {
+  WEB_DEV
+  MOBILE_DEV
+  DEVOPS
+}
+
+enum Status {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum LessonType {
+  TEXT
+  VIDEO
+  QUIZ
+  EXERCISE
+  CODE
+}
+
+enum MaterialType {
+  PDF
+  VIDEO
+  IMAGE
+  DOCUMENT
+  CODE
+  OTHER
+}
