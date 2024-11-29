@@ -1,24 +1,39 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// List of paths that don't require authentication
-const publicPaths = ['/login', '/register'];
+// List of paths that are publicly accessible
+const publicPaths = [
+  '/login',
+  '/register',
+  '/browse',
+  '/',
+  '/about',
+  '/contact'
+];
+
+// List of paths that require authentication
+const protectedPaths = [
+  '/dashboard',
+  '/learning',
+  '/progress',
+  '/instructor',
+  '/courses',
+  '/settings'
+];
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('token');
   const { pathname } = request.nextUrl;
 
   // Allow access to public paths
-  if (publicPaths.includes(pathname)) {
-    // If user is already logged in, redirect to dashboard
-    if (token) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+  if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
-  // Check if user is authenticated for protected routes
-  if (!token) {
+  // Check if the current path requires authentication
+  const requiresAuth = protectedPaths.some(path => pathname.startsWith(path));
+  
+  if (requiresAuth && !token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);

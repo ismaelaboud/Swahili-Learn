@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
+import { Search, Lock } from 'lucide-react';
 
 const MOCK_COURSES = [
   {
@@ -14,6 +16,9 @@ const MOCK_COURSES = [
     instructor: 'John Doe',
     category: 'Web Development',
     level: 'Beginner',
+    image: '/course-images/web-dev.jpg',
+    enrollmentCount: 156,
+    rating: 4.8,
   },
   {
     id: '2',
@@ -22,11 +27,16 @@ const MOCK_COURSES = [
     instructor: 'Jane Smith',
     category: 'Frontend Development',
     level: 'Advanced',
+    image: '/course-images/react.jpg',
+    enrollmentCount: 89,
+    rating: 4.9,
   },
   // Add more mock courses as needed
 ];
 
 export default function BrowsePage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -34,6 +44,16 @@ export default function BrowsePage() {
     course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     course.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleCourseClick = (courseId: string) => {
+    if (!user) {
+      // If user is not authenticated, redirect to login
+      router.push('/auth/login?redirect=/courses/' + courseId);
+    } else {
+      // If user is authenticated, go to course page
+      router.push('/courses/' + courseId);
+    }
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -64,6 +84,16 @@ export default function BrowsePage() {
           {filteredCourses.map((course) => (
             <Card key={course.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
+                <div className="aspect-video relative bg-muted rounded-md mb-4">
+                  {course.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="object-cover rounded-md"
+                    />
+                  )}
+                </div>
                 <CardTitle>{course.title}</CardTitle>
                 <CardDescription>{course.description}</CardDescription>
               </CardHeader>
@@ -81,14 +111,37 @@ export default function BrowsePage() {
                     <span className="text-muted-foreground">Level:</span>
                     <span className="font-medium">{course.level}</span>
                   </div>
-                  <Button className="mt-4 w-full">
-                    View Course
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Enrolled:</span>
+                    <span className="font-medium">{course.enrollmentCount} students</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Rating:</span>
+                    <span className="font-medium">⭐ {course.rating}</span>
+                  </div>
+                  <Button 
+                    className="mt-4 w-full"
+                    onClick={() => handleCourseClick(course.id)}
+                  >
+                    {!user && <Lock className="h-4 w-4 mr-2" />}
+                    {user ? 'View Course' : 'Login to Access'}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        {filteredCourses.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>No courses found</CardTitle>
+              <CardDescription>
+                Try adjusting your search query
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
       </div>
     </div>
   );
