@@ -9,7 +9,7 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Learning Management System',
+  title: 'Swahilipot Learn',
   description: 'A modern platform for online education',
 };
 

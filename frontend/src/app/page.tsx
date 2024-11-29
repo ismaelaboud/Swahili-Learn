@@ -6,7 +6,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
-            Learning Management System
+            Swahilipot Learn
           </h1>
           <p className="mt-6 text-lg leading-8 text-muted-foreground">
             A modern platform for online education
