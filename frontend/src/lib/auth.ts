@@ -1,5 +1,6 @@
 import { jwtDecode } from 'jwt-decode';
 import Cookies from 'js-cookie';
+import { api } from './api';
 
 export interface UserRole {
   ADMIN: 'ADMIN';
@@ -18,6 +19,7 @@ export interface DecodedToken {
   userId: string;
   email: string;
   role: keyof UserRole;
+  name: string;
   iat: number;
   exp: number;
 }
@@ -54,44 +56,38 @@ export const getUser = (): User | null => {
     return {
       id: decoded.userId,
       email: decoded.email,
+      name: decoded.name,
       role: decoded.role,
-      name: null,
     };
   } catch {
+    Cookies.remove(TOKEN_NAME);
     return null;
   }
 };
 
-export const login = async (email: string, password: string): Promise<{ user: User; token: string }> => {
-  console.log('Attempting login...');
-  const response = await fetch('http://localhost:3001/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  });
+export const login = async (
+  email: string,
+  password: string
+): Promise<{ user: User; token: string }> => {
+  try {
+    const response = await api.login({ email, password });
+    const { token } = response;
 
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Login failed:', error);
-    throw new Error(error.message || 'Failed to login');
+    // Set cookie with token
+    Cookies.set(TOKEN_NAME, token, {
+      expires: 7, // 7 days
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    const user = getUser();
+    if (!user) throw new Error('Failed to decode user from token');
+
+    return { user, token };
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  console.log('Login successful, token:', data.token);
-  
-  // Set cookie with token
-  Cookies.set(TOKEN_NAME, data.token, {
-    expires: 7, // 7 days
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
-  });
-
-  const user = getUser();
-  if (!user) throw new Error('Failed to decode user from token');
-
-  return { user, token: data.token };
 };
 
 export const register = async (
@@ -100,35 +96,55 @@ export const register = async (
   name: string,
   role: keyof UserRole
 ): Promise<{ user: User; token: string }> => {
-  console.log('Attempting registration...');
-  const response = await fetch('http://localhost:3001/api/auth/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password, name, role }),
-  });
+  try {
+    // Validate input data
+    if (!email?.trim()) throw new Error('Email is required');
+    if (!password) throw new Error('Password is required');
+    if (!name?.trim()) throw new Error('Name is required');
+    if (!role) throw new Error('Role is required');
 
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Registration failed:', error);
-    throw new Error(error.message || 'Failed to register');
+    // Prepare registration data
+    const registrationData = {
+      email: email.trim(),
+      password,
+      name: name.trim(),
+      role
+    };
+
+    console.log('Sending registration request with data:', {
+      ...registrationData,
+      password: '[REDACTED]'
+    });
+
+    // Make API request
+    const response = await api.register(registrationData);
+    console.log('Registration response:', {
+      ...response,
+      token: response.token ? '[PRESENT]' : '[MISSING]'
+    });
+
+    if (!response.token) {
+      throw new Error('No token received from server');
+    }
+
+    // Set cookie with token
+    Cookies.set(TOKEN_NAME, response.token, {
+      expires: 7, // 7 days
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    // Get user from token
+    const user = getUser();
+    if (!user) {
+      throw new Error('Failed to decode user from token');
+    }
+
+    return { user, token: response.token };
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  console.log('Registration successful, token:', data.token);
-  
-  // Set cookie with token
-  Cookies.set(TOKEN_NAME, data.token, {
-    expires: 7, // 7 days
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
-  });
-
-  const user = getUser();
-  if (!user) throw new Error('Failed to decode user from token');
-
-  return { user, token: data.token };
 };
 
 export const logout = (): void => {
@@ -136,8 +152,7 @@ export const logout = (): void => {
   Cookies.remove(TOKEN_NAME);
 };
 
-export const getAuthHeader = (): { Authorization: string } | undefined => {
-  if (typeof window === 'undefined') return undefined;
+export const getAuthHeader = () => {
   const token = Cookies.get(TOKEN_NAME);
-  return token ? { Authorization: `Bearer ${token}` } : undefined;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };

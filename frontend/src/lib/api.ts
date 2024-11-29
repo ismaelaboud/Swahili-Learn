@@ -37,88 +37,200 @@ interface FetchOptions extends RequestInit {
   body?: any;
 }
 
+const publicEndpoints = ['/api/auth/login', '/api/auth/register'];
+
 export async function fetchApi(endpoint: string, options: FetchOptions = {}) {
   const apiUrl = await initializeApiUrl();
   const token = options.token || getCookie('token');
   
-  if (!token) {
+  // Only require token for non-public endpoints
+  if (!token && !publicEndpoints.some(e => endpoint.endsWith(e))) {
     throw new Error('Not authenticated');
   }
 
   const defaultOptions: RequestInit = {
+    method: options.method || 'GET',
     credentials: 'include',
     mode: 'cors',
     headers: {
-      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
     },
   };
 
-  const fetchOptions: RequestInit = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers,
-    },
-  };
+  // Handle the request body
+  if (options.body !== undefined) {
+    try {
+      // If body is already a string and valid JSON, use it as is
+      if (typeof options.body === 'string') {
+        try {
+          JSON.parse(options.body); // Validate JSON string
+          defaultOptions.body = options.body;
+        } catch {
+          throw new Error('Invalid JSON string in request body');
+        }
+      } else {
+        // Convert non-string body to JSON string
+        defaultOptions.body = JSON.stringify(options.body);
+      }
 
-  if (options.body) {
-    fetchOptions.body = JSON.stringify(options.body);
+      console.log('Request body:', {
+        raw: options.body,
+        processed: defaultOptions.body,
+        parsed: JSON.parse(defaultOptions.body as string)
+      });
+    } catch (e) {
+      console.error('Failed to process request body:', e);
+      throw new Error('Failed to process request body: ' + e.message);
+    }
   }
 
   try {
-    const response = await fetch(`${apiUrl}${endpoint}`, fetchOptions);
-    const data = await response.json();
+    const finalOptions = {
+      ...defaultOptions,
+      ...options,
+      // Ensure these critical options are not overridden
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        ...defaultOptions.headers,
+        ...options.headers,
+      },
+    };
 
-    if (!response.ok) {
-      throw new Error(data.error || 'API request failed');
+    // Ensure body is not lost when spreading options
+    if (defaultOptions.body) {
+      finalOptions.body = defaultOptions.body;
     }
 
-    return data;
-  } catch (error) {
-    console.error('API Error:', error);
+    console.log('Making API request to:', `${apiUrl}${endpoint}`, {
+      method: finalOptions.method,
+      headers: finalOptions.headers,
+      body: finalOptions.body ? JSON.parse(finalOptions.body as string) : undefined
+    });
+
+    const response = await fetch(`${apiUrl}${endpoint}`, finalOptions);
+    const contentType = response.headers.get('content-type');
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        if (contentType?.includes('application/json')) {
+          errorData = await response.json();
+        } else {
+          const text = await response.text();
+          errorData = { 
+            message: text || response.statusText || 'API request failed',
+            status: response.status 
+          };
+        }
+      } catch (e) {
+        errorData = { 
+          message: response.statusText || 'API request failed',
+          status: response.status 
+        };
+      }
+      console.error('API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        errorData
+      });
+      throw new Error(errorData.message || 'API request failed');
+    }
+
+    // Handle empty responses
+    if (response.status === 204 || !contentType) {
+      return null;
+    }
+
+    // Parse JSON response
+    if (contentType?.includes('application/json')) {
+      return response.json();
+    }
+
+    // Return text for other content types
+    return response.text();
+  } catch (error: any) {
+    console.error(`API Error (${endpoint}):`, error);
     throw error;
   }
 }
 
 export const api = {
   // Auth
-  login: (credentials: { email: string; password: string }) =>
-    fetchApi('/api/auth/login', { method: 'POST', body: credentials }),
-  register: (userData: { email: string; password: string; name: string }) =>
-    fetchApi('/api/auth/register', { method: 'POST', body: userData }),
+  async login(credentials: { email: string; password: string }) {
+    return fetchApi('/api/auth/login', { 
+      method: 'POST',
+      body: credentials
+    });
+  },
+
+  async register(userData: { 
+    email: string; 
+    password: string; 
+    name: string; 
+    role: 'STUDENT' | 'INSTRUCTOR' 
+  }) {
+    return fetchApi('/api/auth/register', { 
+      method: 'POST',
+      body: userData
+    });
+  },
 
   // Courses
-  createCourse: (courseData: { title: string; description: string; category: string }) =>
-    fetchApi('/api/courses', { method: 'POST', body: courseData }),
-  getCourses: () => 
-    fetchApi('/api/courses'),
-  getCourse: (id: string) =>
-    fetchApi(`/api/courses/${id}`),
-  updateCourse: (id: string, courseData: any) =>
-    fetchApi(`/api/courses/${id}`, { method: 'PATCH', body: courseData }),
-  deleteCourse: (id: string) =>
-    fetchApi(`/api/courses/${id}`, { method: 'DELETE' }),
+  async createCourse(courseData: { title: string; description: string; category: string }) {
+    return fetchApi('/api/courses', { method: 'POST', body: courseData });
+  },
+
+  async getCourses() {
+    return fetchApi('/api/courses');
+  },
+
+  async getCourse(id: string) {
+    return fetchApi(`/api/courses/${id}`);
+  },
+
+  async updateCourse(id: string, courseData: any) {
+    return fetchApi(`/api/courses/${id}`, { method: 'PUT', body: courseData });
+  },
+
+  async deleteCourse(id: string) {
+    return fetchApi(`/api/courses/${id}`, { method: 'DELETE' });
+  },
 
   // Sections
-  createSection: (courseId: string, sectionData: { title: string; description?: string }) =>
-    fetchApi(`/api/sections`, { method: 'POST', body: { ...sectionData, courseId } }),
-  getSections: (courseId: string) =>
-    fetchApi(`/api/sections?courseId=${courseId}`),
-  updateSection: (id: string, sectionData: any) =>
-    fetchApi(`/api/sections/${id}`, { method: 'PATCH', body: sectionData }),
-  deleteSection: (id: string) =>
-    fetchApi(`/api/sections/${id}`, { method: 'DELETE' }),
+  async createSection(courseId: string, sectionData: { title: string; description?: string }) {
+    return fetchApi(`/api/courses/${courseId}/sections`, { method: 'POST', body: sectionData });
+  },
+
+  async getSections(courseId: string) {
+    return fetchApi(`/api/courses/${courseId}/sections`);
+  },
+
+  async updateSection(id: string, sectionData: any) {
+    return fetchApi(`/api/sections/${id}`, { method: 'PUT', body: sectionData });
+  },
+
+  async deleteSection(id: string) {
+    return fetchApi(`/api/sections/${id}`, { method: 'DELETE' });
+  },
 
   // Lessons
-  createLesson: (sectionId: string, lessonData: any) =>
-    fetchApi(`/api/lessons`, { method: 'POST', body: { ...lessonData, sectionId } }),
-  getLesson: (id: string) =>
-    fetchApi(`/api/lessons/${id}`),
-  updateLesson: (id: string, lessonData: any) =>
-    fetchApi(`/api/lessons/${id}`, { method: 'PATCH', body: lessonData }),
-  deleteLesson: (id: string) =>
-    fetchApi(`/api/lessons/${id}`, { method: 'DELETE' }),
+  async createLesson(sectionId: string, lessonData: any) {
+    return fetchApi(`/api/sections/${sectionId}/lessons`, { method: 'POST', body: lessonData });
+  },
+
+  async getLesson(id: string) {
+    return fetchApi(`/api/lessons/${id}`);
+  },
+
+  async updateLesson(id: string, lessonData: any) {
+    return fetchApi(`/api/lessons/${id}`, { method: 'PUT', body: lessonData });
+  },
+
+  async deleteLesson(id: string) {
+    return fetchApi(`/api/lessons/${id}`, { method: 'DELETE' });
+  },
 };

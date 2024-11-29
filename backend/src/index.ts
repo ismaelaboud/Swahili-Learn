@@ -17,24 +17,44 @@ const app = express();
 const prisma = new PrismaClient();
 const port = process.env.PORT || 3001;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Security Middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-}));
-
-// CORS middleware
+// CORS configuration must come before other middleware
 const corsOptions = {
   origin: 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
 };
 
+// Apply CORS with options
 app.use(cors(corsOptions));
+
+// Set additional CORS headers for all responses
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  next();
+});
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`[${req.method}] ${req.path}`);
+  if (req.method === 'POST' || req.method === 'PUT') {
+    logger.info('Request headers:', req.headers);
+    logger.info('Request body:', req.body);
+  }
+  next();
+});
+
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
@@ -42,10 +62,9 @@ app.options('*', cors(corsOptions));
 // Rate limiting
 app.use(apiLimiter);
 
-// Request logging
-app.use((req, res, next) => {
-  logger.info(`[${req.method}] ${req.path}`);
-  next();
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Routes
@@ -54,42 +73,43 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/sections', sectionRoutes);
 app.use('/api/lessons', lessonRoutes);
 
-// Error handling
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error('Error:', err);
+  
+  // Handle JSON parsing errors
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ 
+      message: 'Invalid JSON payload',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+  
+  next(err);
+});
+
+// General error handler
 app.use(errorHandler);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
+// Start server with retry logic
 const startServer = async (retryCount = 0) => {
   try {
     await prisma.$connect();
-    logger.info('Connected to database');
-    
-    const server = app.listen(port, () => {
-      logger.info(`Server is running on port ${port}`);
-    });
+    logger.info('Connected to database successfully');
 
-    server.on('error', (error: any) => {
-      if (error.code === 'EADDRINUSE' && retryCount < 3) {
-        logger.warn(`Port ${port} is in use, trying port ${port + 1}`);
-        server.close();
-        process.env.PORT = String(Number(port) + 1);
-        startServer(retryCount + 1);
-      } else {
-        logger.error('Server error:', error);
-        process.exit(1);
-      }
+    app.listen(port, () => {
+      logger.info(`Server is running on port ${port}`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
-    process.exit(1);
+
+    if (retryCount < 3) {
+      logger.info(`Retrying in 5 seconds... (Attempt ${retryCount + 1}/3)`);
+      setTimeout(() => startServer(retryCount + 1), 5000);
+    } else {
+      logger.error('Failed to start server after 3 attempts');
+      process.exit(1);
+    }
   }
 };
 
@@ -101,7 +121,6 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (error) => {
   logger.error('Unhandled Rejection:', error);
   process.exit(1);
