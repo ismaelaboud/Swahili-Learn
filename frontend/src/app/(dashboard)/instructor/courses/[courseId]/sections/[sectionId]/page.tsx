@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, DragHandleDots2Icon, Trash2 } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getCookie } from '@/lib/cookies';
@@ -21,62 +21,60 @@ import { getCookie } from '@/lib/cookies';
 interface Lesson {
   id: string;
   title: string;
+  description: string | null;
   content: string;
   type: 'TEXT' | 'VIDEO' | 'QUIZ' | 'EXERCISE' | 'CODE';
   order: number;
 }
 
 interface Props {
-  params: Promise<{
+  params: {
     courseId: string;
     sectionId: string;
-  }>;
+  };
 }
 
 export default function SectionEditor({ params }: Props) {
-  const { courseId, sectionId } = use(params);
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchSection = async () => {
-      try {
-        const token = getCookie('token');
-        if (!token) {
-          router.push('/auth/login');
-          return;
-        }
-
-        const response = await fetch(`http://localhost:3001/api/sections/${sectionId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch section');
-        }
-
-        const data = await response.json();
-        setTitle(data.title);
-        setDescription(data.description || '');
-        setLessons(data.lessons);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch section');
-        toast.error('Failed to fetch section details');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchSection();
-  }, [sectionId, router]);
+  }, []);
+
+  const fetchSection = async () => {
+    try {
+      setIsLoading(true);
+      const token = getCookie('token');
+      if (!token) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch(`/api/courses/${params.courseId}/sections/${params.sectionId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch section');
+      }
+
+      const data = await response.json();
+      setTitle(data.title || '');
+      setDescription(data.description || '');
+      setLessons(data.lessons || []);
+    } catch (error) {
+      toast.error('Failed to load section');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -87,17 +85,16 @@ export default function SectionEditor({ params }: Props) {
         return;
       }
 
-      const response = await fetch(`http://localhost:3001/api/sections/${sectionId}`, {
+      const response = await fetch(`/api/courses/${params.courseId}/sections/${params.sectionId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title,
           description,
         }),
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -105,44 +102,11 @@ export default function SectionEditor({ params }: Props) {
       }
 
       toast.success('Section updated successfully');
+      router.refresh();
     } catch (error) {
       toast.error('Failed to update section');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleAddLesson = async () => {
-    try {
-      const token = getCookie('token');
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:3001/api/lessons/${sectionId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: 'New Lesson',
-          content: '',
-          type: 'TEXT',
-        }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create lesson');
-      }
-
-      const newLesson = await response.json();
-      setLessons([...lessons, newLesson]);
-      toast.success('Lesson created successfully');
-    } catch (error) {
-      toast.error('Failed to create lesson');
     }
   };
 
@@ -153,90 +117,107 @@ export default function SectionEditor({ params }: Props) {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update the order locally
-    setLessons(items);
+    // Update the order property for each lesson
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      order: index,
+    }));
+
+    setLessons(updatedItems);
 
     try {
       const token = getCookie('token');
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      // Send the new order to the backend
-      const response = await fetch(`http://localhost:3001/api/lessons/${sectionId}/reorder`, {
+      await fetch(`/api/courses/${params.courseId}/sections/${params.sectionId}/lessons/reorder`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          lessonIds: items.map(lesson => lesson.id),
+          lessons: updatedItems.map((lesson) => ({
+            id: lesson.id,
+            order: lesson.order,
+          })),
         }),
-        credentials: 'include',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to reorder lessons');
-      }
+      toast.success('Lessons reordered successfully');
     } catch (error) {
-      toast.error('Failed to reorder lessons');
-      // Fetch lessons again to reset the order
-      router.refresh();
+      toast.error('Failed to update lesson order');
+      // Revert the state if the API call fails
+      fetchSection();
+    }
+  };
+
+  const handleAddLesson = () => {
+    router.push(
+      `/instructor/courses/${params.courseId}/sections/${params.sectionId}/lessons/create`
+    );
+  };
+
+  const handleEditLesson = (lessonId: string) => {
+    router.push(
+      `/instructor/courses/${params.courseId}/sections/${params.sectionId}/lessons/${lessonId}`
+    );
+  };
+
+  const handleDeleteLesson = async (lessonId: string) => {
+    try {
+      const token = getCookie('token');
+      const response = await fetch(
+        `/api/courses/${params.courseId}/sections/${params.sectionId}/lessons/${lessonId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete lesson');
+      }
+
+      setLessons(lessons.filter((lesson) => lesson.id !== lessonId));
+      toast.success('Lesson deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete lesson');
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
+      <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <h1 className="text-2xl font-bold text-gray-900">Error</h1>
-        <p className="mt-2 text-gray-600">{error}</p>
-        <Button
-          onClick={() => router.push(`/instructor/courses/${courseId}`)}
-          className="mt-4"
-        >
-          Back to Course
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="container max-w-4xl mx-auto p-6">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/instructor/courses/${courseId}`)}
-          >
-            ← Back to Course
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
+    <div className="container mx-auto p-6">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Edit Section</h1>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/instructor/courses/${params.courseId}`)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
         </div>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
             <CardTitle>Section Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Title</label>
               <Input
                 value={title}
@@ -244,7 +225,7 @@ export default function SectionEditor({ params }: Props) {
                 placeholder="Enter section title"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>
               <Textarea
                 value={description}
@@ -255,69 +236,87 @@ export default function SectionEditor({ params }: Props) {
           </CardContent>
         </Card>
 
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Lessons</h2>
-          <Button onClick={handleAddLesson}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Lesson
-          </Button>
-        </div>
-
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="lessons">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="space-y-4"
-              >
-                {lessons.map((lesson, index) => (
-                  <Draggable
-                    key={lesson.id}
-                    draggableId={lesson.id}
-                    index={index}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>Lessons</CardTitle>
+            <Button onClick={handleAddLesson}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lesson
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="lessons">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-4"
                   >
-                    {(provided) => (
-                      <Card
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                      >
-                        <CardHeader
-                          {...provided.dragHandleProps}
-                          className="flex flex-row items-center justify-between space-y-0 pb-2"
+                    {lessons && lessons.length > 0 ? (
+                      lessons.map((lesson, index) => (
+                        <Draggable
+                          key={lesson.id}
+                          draggableId={lesson.id}
+                          index={index}
                         >
-                          <CardTitle className="text-lg font-medium">
-                            <div className="flex items-center">
-                              <DragHandleDots2Icon className="h-5 w-5 mr-2 text-gray-500" />
-                              {lesson.title}
-                            </div>
-                          </CardTitle>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => router.push(`/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lesson.id}`)}
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                             >
-                              Edit
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500 capitalize">
-                              Type: {lesson.type.toLowerCase().replace('_', ' ')}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
+                              <div className="flex items-center space-x-4">
+                                <div {...provided.dragHandleProps}>
+                                  <GripVertical className="h-5 w-5 text-gray-500" />
+                                </div>
+                                <div>
+                                  <h3 className="font-medium">{lesson.title}</h3>
+                                  <p className="text-sm text-gray-500">
+                                    {lesson.type}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditLesson(lesson.id)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteLesson(lesson.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No lessons yet.</p>
+                        <Button
+                          variant="outline"
+                          onClick={handleAddLesson}
+                          className="mt-4"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Your First Lesson
+                        </Button>
+                      </div>
                     )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

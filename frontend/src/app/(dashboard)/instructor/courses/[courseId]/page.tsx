@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, DragHandleDots2Icon } from 'lucide-react';
+import { Loader2, Plus, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { getCookie } from '@/lib/cookies';
@@ -20,87 +20,46 @@ interface Section {
 interface Lesson {
   id: string;
   title: string;
-  content: string;
-  type: 'TEXT' | 'VIDEO' | 'QUIZ' | 'EXERCISE' | 'CODE';
+  description: string | null;
   order: number;
+  type: 'VIDEO' | 'TEXT' | 'QUIZ';
 }
 
 interface Props {
-  params: Promise<{
+  params: {
     courseId: string;
-  }>;
+  };
 }
 
 export default function CourseEditor({ params }: Props) {
-  const { courseId } = use(params);
   const router = useRouter();
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchSections = async () => {
-      try {
-        const token = getCookie('token');
-        if (!token) {
-          router.push('/auth/login');
-          return;
-        }
-
-        const response = await fetch(`http://localhost:3001/api/sections/${courseId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch sections');
-        }
-
-        const data = await response.json();
-        setSections(data);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch sections');
-        toast.error('Failed to fetch course sections');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchSections();
-  }, [courseId, router]);
+  }, []);
 
-  const handleAddSection = async () => {
+  const fetchSections = async () => {
     try {
+      setIsLoading(true);
       const token = getCookie('token');
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:3001/api/sections/${courseId}`, {
-        method: 'POST',
+      const response = await fetch(`/api/courses/${params.courseId}/sections`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title: 'New Section',
-          description: 'Add a description for this section',
-        }),
-        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create section');
+        throw new Error('Failed to fetch sections');
       }
 
-      const newSection = await response.json();
-      setSections([...sections, newSection]);
-      toast.success('Section created successfully');
+      const data = await response.json();
+      setSections(data);
     } catch (error) {
-      toast.error('Failed to create section');
+      toast.error('Failed to load course sections');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -111,66 +70,70 @@ export default function CourseEditor({ params }: Props) {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    // Update the order locally
-    setSections(items);
+    // Update the order property for each section
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      order: index,
+    }));
+
+    setSections(updatedItems);
 
     try {
       const token = getCookie('token');
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      // Send the new order to the backend
-      const response = await fetch(`http://localhost:3001/api/sections/${courseId}/reorder`, {
+      await fetch(`/api/courses/${params.courseId}/sections/reorder`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          sectionIds: items.map(section => section.id),
+          sections: updatedItems.map((section) => ({
+            id: section.id,
+            order: section.order,
+          })),
         }),
-        credentials: 'include',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to reorder sections');
-      }
+      toast.success('Sections reordered successfully');
     } catch (error) {
-      toast.error('Failed to reorder sections');
-      // Fetch sections again to reset the order
-      router.refresh();
+      toast.error('Failed to update section order');
+      // Revert the state if the API call fails
+      fetchSections();
     }
+  };
+
+  const handleAddSection = () => {
+    router.push(`/instructor/courses/${params.courseId}/sections/create`);
+  };
+
+  const handleEditSection = (sectionId: string) => {
+    router.push(`/instructor/courses/${params.courseId}/sections/${sectionId}`);
+  };
+
+  const handleAddLesson = (sectionId: string) => {
+    router.push(
+      `/instructor/courses/${params.courseId}/sections/${sectionId}/lessons/create`
+    );
+  };
+
+  const handleEditLesson = (sectionId: string, lessonId: string) => {
+    router.push(
+      `/instructor/courses/${params.courseId}/sections/${sectionId}/lessons/${lessonId}`
+    );
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
+      <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <h1 className="text-2xl font-bold text-gray-900">Error</h1>
-        <p className="mt-2 text-gray-600">{error}</p>
-        <Button
-          onClick={() => router.push('/instructor/courses')}
-          className="mt-4"
-        >
-          Back to Courses
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="container max-w-4xl mx-auto p-6">
+    <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Course Content</h1>
+        <h1 className="text-3xl font-bold">Course Content</h1>
         <Button onClick={handleAddSection}>
           <Plus className="h-4 w-4 mr-2" />
           Add Section
@@ -180,11 +143,7 @@ export default function CourseEditor({ params }: Props) {
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="sections">
           {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className="space-y-4"
-            >
+            <div {...provided.droppableProps} ref={provided.innerRef}>
               {sections.map((section, index) => (
                 <Draggable
                   key={section.id}
@@ -193,33 +152,61 @@ export default function CourseEditor({ params }: Props) {
                 >
                   {(provided) => (
                     <Card
+                      className="mb-4"
                       ref={provided.innerRef}
                       {...provided.draggableProps}
                     >
-                      <CardHeader
-                        {...provided.dragHandleProps}
-                        className="flex flex-row items-center justify-between space-y-0 pb-2"
-                      >
+                      <CardHeader>
                         <CardTitle className="text-lg font-medium">
                           <div className="flex items-center">
-                            <DragHandleDots2Icon className="h-5 w-5 mr-2 text-gray-500" />
+                            <div {...provided.dragHandleProps}>
+                              <GripVertical className="h-5 w-5 mr-2 text-gray-500" />
+                            </div>
                             {section.title}
                           </div>
                         </CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/instructor/courses/${courseId}/sections/${section.id}`)}
-                        >
-                          Edit
-                        </Button>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-gray-500">
-                          {section.description || 'No description'}
-                        </p>
-                        <div className="mt-4">
-                          <p className="text-sm font-medium">Lessons: {section.lessons.length}</p>
+                        <div className="space-y-2">
+                          {section.description && (
+                            <p className="text-sm text-gray-500">
+                              {section.description}
+                            </p>
+                          )}
+                          <div className="flex flex-col space-y-2">
+                            {section.lessons.map((lesson) => (
+                              <div
+                                key={lesson.id}
+                                className="flex items-center justify-between p-2 bg-gray-50 rounded-md"
+                              >
+                                <span className="text-sm">{lesson.title}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleEditLesson(section.id, lesson.id)
+                                  }
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditSection(section.id)}
+                            >
+                              Edit Section
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddLesson(section.id)}
+                            >
+                              Add Lesson
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -231,6 +218,20 @@ export default function CourseEditor({ params }: Props) {
           )}
         </Droppable>
       </DragDropContext>
+
+      {sections.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-40">
+            <p className="text-muted-foreground mb-4">
+              No sections yet. Add your first section to get started.
+            </p>
+            <Button onClick={handleAddSection}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Section
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
