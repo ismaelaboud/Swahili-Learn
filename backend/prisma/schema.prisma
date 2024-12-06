@@ -13,6 +13,9 @@ model User {
   name          String?
   password      String
   role          Role      @default(STUDENT)
+  resetToken    String?
+  resetTokenExpiry DateTime?
+  refreshTokens RefreshToken[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   enrollments   Enrollment[]
@@ -102,6 +105,18 @@ model Enrollment {
   updatedAt DateTime  @updatedAt
 
   @@unique([userId, courseId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
 }
 
 enum Role {

@@ -3,11 +3,13 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import courseRoutes from './routes/course.routes';
 import sectionRoutes from './routes/section.routes';
 import lessonRoutes from './routes/lesson.routes';
+import contentRoutes from './routes/content.routes';
 import logger from './utils/logger';
 
 const app = express();
@@ -15,6 +17,7 @@ const app = express();
 // Security middleware
 app.use(helmet());
 app.use(cors());
+app.use(compression());
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -34,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/sections', sectionRoutes);
 app.use('/api/lessons', lessonRoutes);
+app.use('/api/content', contentRoutes);
 
 // Error handling
 app.use(errorHandler);

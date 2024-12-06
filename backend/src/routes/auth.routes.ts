@@ -4,16 +4,22 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import logger from '../utils/logger';
+import { generateAccessToken, generateRefreshToken } from './auth/token.routes';
 
 const router = Router();
 const prisma = new PrismaClient();
 
-// Validation schema for registration
+// Validation schemas
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   role: z.enum(['STUDENT', 'INSTRUCTOR']).default('STUDENT'),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string(),
 });
 
 // Debug middleware for registration route
@@ -46,22 +52,9 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Validate request body
-    const validationResult = registerSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      logger.error('Validation failed:', validationResult.error);
-      return res.status(400).json({
-        message: 'Invalid input data',
-        errors: validationResult.error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }))
-      });
-    }
+    const validatedData = registerSchema.parse(req.body);
+    const { email, password, name, role } = validatedData;
 
-    const { email, password, name, role } = validationResult.data;
-    
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -87,27 +80,19 @@ router.post('/register', async (req, res) => {
 
     logger.info('User registered successfully:', { userId: user.id, email: user.email });
 
-    // Create token with user role
-    const token = jwt.sign(
-      { 
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name
-      },
-      process.env.JWT_SECRET || 'your-super-secret-key-change-this',
-      { expiresIn: '1d' }
-    );
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = await generateRefreshToken(user.id);
 
-    // Return user data (excluding password) and token
     res.status(201).json({
-      token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
-      }
+      },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     logger.error('Registration error:', error);
@@ -129,7 +114,7 @@ router.post('/register', async (req, res) => {
 // Login route
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -145,25 +130,30 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { 
+    // Revoke any existing refresh tokens (optional)
+    await prisma.refreshToken.updateMany({
+      where: {
         userId: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name
+        revokedAt: null,
       },
-      process.env.JWT_SECRET || 'your-super-secret-key-change-this',
-      { expiresIn: '1d' }
-    );
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+
+    // Generate new tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = await generateRefreshToken(user.id);
 
     res.json({
-      token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
-      }
+      },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     logger.error('Login error:', error);
@@ -173,5 +163,12 @@ router.post('/login', async (req, res) => {
     });
   }
 });
+
+// Import and use password routes
+import passwordRoutes from './auth/password.routes';
+import tokenRoutes from './auth/token.routes';
+
+router.use('/password', passwordRoutes);
+router.use('/token', tokenRoutes);
 
 export default router;
