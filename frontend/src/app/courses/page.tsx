@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Loader2, BookOpen, Users } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { BookOpen, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { getCookie } from '@/lib/cookies';
+import ShineBorder from "@/components/magicui/shine-border";
 
 interface Course {
   id: string;
@@ -20,6 +20,10 @@ interface Course {
     sections: number;
     enrollments: number;
   };
+  instructor?: {
+    name: string;
+  };
+  level?: string;
 }
 
 export default function ExploreCourses() {
@@ -83,34 +87,60 @@ export default function ExploreCourses() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {courses.map((course) => (
-          <Card key={course.id} className="flex flex-col">
-            <CardContent className="flex-1 p-6">
-              <h2 className="text-xl font-semibold mb-2">{course.title}</h2>
-              <p className="text-muted-foreground mb-4">{course.description}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <BookOpen className="h-4 w-4" />
-                  <span>{course._count?.sections || 0} sections</span>
+          <ShineBorder
+            key={course.id}
+            color={["#8678F9", "#c7d2fe", "#FFBE7B"]}
+            className="group h-full transition-all duration-300 hover:scale-[1.02]"
+            shouldHover={true}
+          >
+            <div className="flex h-full flex-col bg-card p-6 rounded-lg">
+              {course.imageUrl && (
+                <div className="aspect-video relative mb-4 rounded-lg overflow-hidden">
+                  <img
+                    src={course.imageUrl}
+                    alt={course.title}
+                    className="object-cover w-full h-full"
+                  />
                 </div>
-                <div className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  <span>{course._count?.enrollments || 0} enrolled</span>
+              )}
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
+                  {course.title}
+                </h2>
+                <p className="text-muted-foreground mb-4">{course.description}</p>
+                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    <span>{course._count?.sections || 0} sections</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>{course._count?.enrollments || 0} enrolled</span>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-            <CardFooter className="p-6 pt-0">
-              <div className="flex w-full items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Created {formatDistanceToNow(new Date(course.createdAt), { addSuffix: true })}
-                </span>
-                <Button onClick={() => handleEnrollClick(course.id)}>
-                  View Course
-                </Button>
+              <div className="mt-6 pt-6 border-t border-border">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div>
+                      <span className="font-medium">Instructor:</span> {course.instructor?.name || 'Unknown'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Level:</span> {course.level || 'All Levels'}
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => handleEnrollClick(course.id)}
+                    className="w-full bg-gradient-to-r from-[#8678F9] to-[#FFBE7B] hover:opacity-90 transition-opacity"
+                  >
+                    View Course
+                  </Button>
+                </div>
               </div>
-            </CardFooter>
-          </Card>
+            </div>
+          </ShineBorder>
         ))}
       </div>
 

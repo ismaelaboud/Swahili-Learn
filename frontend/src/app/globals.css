@@ -49,6 +49,38 @@
   }
 }
 
+@layer utilities {
+  .shine-border {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shine-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(134, 120, 249, 0.2),
+      rgba(199, 210, 254, 0.2),
+      rgba(255, 190, 123, 0.2),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shine 2s linear infinite;
+  }
+}
+
+@keyframes shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
