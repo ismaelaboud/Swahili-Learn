@@ -1,28 +1,31 @@
-FROM node:18
+FROM node:18.19.0
 
-WORKDIR /app/backend
+# Create and set working directory
+WORKDIR /usr/src/app
 
-# Copy package files first for better caching
+# Copy root package files
 COPY backend/package*.json ./
 
-# Install dependencies with legacy peer deps flag to avoid conflicts
-RUN npm install --legacy-peer-deps
+# Install dependencies
+RUN npm install
 
-# Copy prisma schema
+# Copy prisma files
 COPY backend/prisma ./prisma/
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Copy the rest of the backend code
-COPY backend/ .
+# Copy source code
+COPY backend/src ./src/
+COPY backend/tsconfig.json ./
 
 # Build the application
 RUN npm run build
 
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=3001
+
 EXPOSE 3001
 
-# Set production environment
-ENV NODE_ENV=production
-
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
