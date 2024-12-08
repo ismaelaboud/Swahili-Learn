@@ -4,10 +4,11 @@ WORKDIR /app
 
 # Copy package files first
 COPY backend/package*.json ./
-COPY backend/.npmrc ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies with npm config
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set strict-ssl false && \
+    npm install --no-package-lock --legacy-peer-deps
 
 # Copy prisma schema
 COPY backend/prisma ./prisma/
