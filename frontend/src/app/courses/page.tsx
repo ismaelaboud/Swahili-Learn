@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users } from "lucide-react";
+import { BookOpen, Loader2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from 'date-fns';

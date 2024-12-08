@@ -58,6 +58,7 @@ router.post('/register', async (req, res) => {
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
+      select: { id: true } // Only select id to minimize data transfer
     });
 
     if (existingUser) {
@@ -76,6 +77,12 @@ router.post('/register', async (req, res) => {
         name,
         role,
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+      }
     });
 
     logger.info('User registered successfully:', { userId: user.id, email: user.email });
@@ -91,13 +98,12 @@ router.post('/register', async (req, res) => {
         name: user.name,
         role: user.role,
       },
-      accessToken,
+      token: accessToken,
       refreshToken,
     });
   } catch (error) {
     logger.error('Registration error:', error);
     
-    // Handle Prisma-specific errors
     if (error.code === 'P2002') {
       return res.status(400).json({ 
         message: 'A user with this email already exists' 

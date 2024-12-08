@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd backend && npm install && npx prisma generate"
+
+[deploy]
+startCommand = "cd backend && npm run start"
+healthcheckPath = "/api/health"  # Make sure you have a health endpoint
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
