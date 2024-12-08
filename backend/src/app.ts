@@ -9,7 +9,7 @@ import authRoutes from './routes/auth.routes';
 import courseRoutes from './routes/course.routes';
 import sectionRoutes from './routes/section.routes';
 import lessonRoutes from './routes/lesson.routes';
-import contentRoutes from './routes/content.routes';
+import contentRoutes from './routes/content.routes'; 
 import logger from './utils/logger';
 
 const app = express();

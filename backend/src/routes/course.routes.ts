@@ -1,108 +1,23 @@
-import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { authenticateToken } from '../middleware/auth';
-import { validateInstructor } from '../middleware/roles';
-import logger from '../utils/logger'; // Assuming you have a logger module
+import express from 'express';
+import { authenticateToken, validateInstructor } from '../middleware/auth';
+import { prisma } from '../db';
+import { z } from 'zod';
+import { logger } from '../utils/logger';
 
-const router = Router();
-const prisma = new PrismaClient();
+const router = express.Router();
 
-// Create a new course (Instructor only)
-router.post('/', authenticateToken, validateInstructor, async (req, res, next) => {
-  try {
-    const { title, description, category } = req.body;
-    const instructorId = req.user.id;
-
-    logger.info('Creating course:', { title, category, instructorId });
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
-
-    if (!title?.trim() || !description?.trim() || !category) {
-      logger.warn('Missing required fields:', { title, description, category });
-      return res.status(400).json({ 
-        error: 'Title, description, and category are required' 
-      });
-    }
-
-    // Validate category
-    const validCategories = ['WEB_DEV', 'MOBILE_DEV', 'DEVOPS'];
-    if (!validCategories.includes(category)) {
-      logger.warn('Invalid category:', category);
-      return res.status(400).json({ 
-        error: 'Invalid category. Must be one of: ' + validCategories.join(', ') 
-      });
-    }
-
-    const course = await prisma.course.create({
-      data: {
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        instructorId,
-        published: false,
-        content: {}, // Add empty JSON content
-      },
-      include: {
-        instructor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    logger.info('Course created successfully:', { courseId: course.id });
-    res.status(201).json(course);
-  } catch (error) {
-    logger.error('Error creating course:', error);
-    next(error); // Pass error to error handling middleware
-  }
-});
-
-// Get all published courses
-router.get('/published', authenticateToken, async (req, res) => {
+// Get all courses (public)
+router.get('/', async (req, res) => {
   try {
     const courses = await prisma.course.findMany({
       where: {
-        published: true,
-      },
-      include: {
-        instructor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    res.json(courses);
-  } catch (error) {
-    logger.error('Error fetching published courses:', error);
-    res.status(500).json({ message: 'Failed to fetch courses', error });
-  }
-});
-
-// Get instructor's courses
-router.get('/instructor', authenticateToken, async (req, res) => {
-  try {
-    if (!req.user) {
-      throw new Error('User not authenticated');
-    }
-    const userId = req.user.id;
-
-    const courses = await prisma.course.findMany({
-      where: {
-        published: true,
-        instructorId: req.user?.id
+        published: true
       },
       select: {
         id: true,
         title: true,
         description: true,
+        category: true,
         published: true,
         createdAt: true,
         updatedAt: true,
@@ -112,206 +27,195 @@ router.get('/instructor', authenticateToken, async (req, res) => {
             name: true
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      }
     });
-
     res.json(courses);
   } catch (error) {
-    logger.error('Error fetching instructor courses:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('Error fetching courses:', error);
+    res.status(500).json({ error: 'Failed to fetch courses' });
   }
 });
 
-// Get public courses (no auth required)
-router.get('/public', async (req, res) => {
+// Create course (instructor only)
+router.post('/', authenticateToken, validateInstructor, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
   try {
-    const courses = await prisma.course.findMany({
-      where: {
-        published: true,
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        imageUrl: true,
-        published: true,
-        createdAt: true,
-        _count: {
-          select: {
-            sections: true,
-            enrollments: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    const courseSchema = z.object({
+      title: z.string().min(1),
+      description: z.string().min(1),
+      category: z.enum(['WEB_DEV', 'MOBILE_DEV', 'DEVOPS'])
     });
 
-    res.json(courses);
+    const courseData = courseSchema.parse(req.body);
+
+    const course = await prisma.course.create({
+      data: {
+        ...courseData,
+        instructorId: req.user.id
+      }
+    });
+
+    res.status(201).json(course);
   } catch (error) {
-    logger.error('Error fetching public courses:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid course data', details: error.errors });
+    } else {
+      logger.error('Error creating course:', error);
+      res.status(500).json({ error: 'Failed to create course' });
+    }
   }
 });
 
-// Get course details
-router.get('/:courseId', async (req, res, next) => {
+// Get course by ID
+router.get('/:id', async (req, res) => {
   try {
-    const { courseId } = req.params;
-    const userId = req.user?.id;
-
-    logger.info('Fetching course details:', { courseId, userId });
+    const { id } = req.params;
 
     const course = await prisma.course.findUnique({
-      where: { 
-        id: courseId,
-        published: true
-      },
+      where: { id },
       include: {
         instructor: {
           select: {
             id: true,
             name: true,
-            email: true,
-          },
+            email: true
+          }
         },
-        enrollments: userId ? {
-          where: { userId },
-          select: { id: true, status: true, progress: true }
-        } : false,
-      },
+        sections: {
+          include: {
+            lessons: true
+          }
+        }
+      }
     });
 
     if (!course) {
-      logger.warn('Course not found:', courseId);
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    // Check if user is enrolled or if course is published
-    const isEnrolled = course.enrollments && course.enrollments.length > 0;
-    const isInstructor = userId === course.instructorId;
-    const canAccessContent = isEnrolled || isInstructor || course.published;
-
-    const courseData = {
-      ...course,
-      isEnrolled,
-      isInstructor,
-      canAccessContent,
-      enrollments: undefined, // Remove enrollments from response
-    };
-
-    logger.info('Course details fetched successfully:', { courseId });
-    res.json(courseData);
+    res.json(course);
   } catch (error) {
-    logger.error('Error fetching course details:', error);
-    next(error);
+    logger.error('Error fetching course:', error);
+    res.status(500).json({ error: 'Failed to fetch course' });
   }
 });
 
-// Enroll in a course
-router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
-  try {
-    if (!req.user) {
-      throw new Error('User not authenticated');
-    }
-    const { courseId } = req.params;
-    const userId = req.user.id;
+// Update course (instructor only)
+router.put('/:id', authenticateToken, validateInstructor, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
 
-    // Check if course exists and is published
+  try {
+    const { id } = req.params;
+    const courseData = req.body;
+
+    // Check if course exists and belongs to instructor
+    const existingCourse = await prisma.course.findUnique({
+      where: { id }
+    });
+
+    if (!existingCourse) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    if (existingCourse.instructorId !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to update this course' });
+    }
+
+    const course = await prisma.course.update({
+      where: { id },
+      data: courseData
+    });
+
+    res.json(course);
+  } catch (error) {
+    logger.error('Error updating course:', error);
+    res.status(500).json({ error: 'Failed to update course' });
+  }
+});
+
+// Delete course (instructor only)
+router.delete('/:id', authenticateToken, validateInstructor, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  try {
+    const { id } = req.params;
+
+    // Check if course exists and belongs to instructor
+    const existingCourse = await prisma.course.findUnique({
+      where: { id }
+    });
+
+    if (!existingCourse) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    if (existingCourse.instructorId !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to delete this course' });
+    }
+
+    await prisma.course.delete({
+      where: { id }
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    logger.error('Error deleting course:', error);
+    res.status(500).json({ error: 'Failed to delete course' });
+  }
+});
+
+// Enroll in course
+router.post('/:id/enroll', authenticateToken, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+
+  try {
+    const { id: courseId } = req.params;
+
+    // Check if course exists
     const course = await prisma.course.findUnique({
-      where: { 
-        id: courseId,
-        published: true
-      },
+      where: { id: courseId }
     });
 
     if (!course) {
-      return res.status(404).json({ error: 'Course not found or not published' });
+      return res.status(404).json({ error: 'Course not found' });
     }
 
     // Check if already enrolled
-    const existingEnrollment = await prisma.enrollment.findFirst({
+    const existingEnrollment = await prisma.enrollment.findUnique({
       where: {
-        courseId,
-        userId,
-      },
+        userId_courseId: {
+          userId: req.user.id,
+          courseId
+        }
+      }
     });
 
     if (existingEnrollment) {
       return res.status(400).json({ error: 'Already enrolled in this course' });
     }
 
-    // Create enrollment
     const enrollment = await prisma.enrollment.create({
       data: {
-        userId: req.user?.id!,
-        courseId: courseId,
+        userId: req.user.id,
+        courseId,
         status: 'IN_PROGRESS',
         progress: 0
       }
     });
 
-    res.json(enrollment);
+    res.status(201).json(enrollment);
   } catch (error) {
     logger.error('Error enrolling in course:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Toggle course publish status (Instructor only)
-router.patch('/:courseId/publish', authenticateToken, validateInstructor, async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    logger.info('Toggling publish status for course:', courseId);
-
-    // First, verify that the instructor owns this course
-    const course = await prisma.course.findUnique({
-      where: { id: courseId },
-      select: {
-        instructorId: true,
-        published: true,
-      },
-    });
-
-    if (!course) {
-      logger.info('Course not found:', courseId);
-      return res.status(404).json({ message: 'Course not found' });
-    }
-
-    if (course.instructorId !== req.user.id) {
-      logger.info('Unauthorized: Instructor does not own this course');
-      return res.status(403).json({ message: 'You can only publish/unpublish your own courses' });
-    }
-
-    // Toggle the published status
-    const updatedCourse = await prisma.course.update({
-      where: { id: courseId },
-      data: {
-        published: !course.published,
-      },
-      include: {
-        instructor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    logger.info('Course publish status updated:', updatedCourse);
-    res.json(updatedCourse);
-  } catch (error) {
-    logger.error('Error toggling course publish status:', error);
-    res.status(500).json({ 
-      message: 'Failed to update course publish status', 
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    res.status(500).json({ error: 'Failed to enroll in course' });
   }
 });
 
