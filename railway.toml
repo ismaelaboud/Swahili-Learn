@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
-buildCommand = "cd backend && npm install && npx prisma generate"
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
 
 [deploy]
 startCommand = "cd backend && npm run start"
