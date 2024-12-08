@@ -1,20 +1,20 @@
-FROM node:18-slim
+FROM node:18
 
 WORKDIR /app/backend
 
-# Copy backend package files
+# Copy package files first for better caching
 COPY backend/package*.json ./
 
-# Copy prisma directory from backend
-COPY backend/prisma ./prisma/
-
 # Install dependencies
-RUN npm ci
+RUN npm install
+
+# Copy prisma schema
+COPY backend/prisma ./prisma/
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Copy the backend application code
+# Copy the rest of the backend code
 COPY backend/ .
 
 # Build the application
