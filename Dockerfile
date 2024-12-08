@@ -10,17 +10,20 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     npm config set strict-ssl false && \
     npm install --no-package-lock --legacy-peer-deps
 
-# Copy prisma schema
-COPY backend/prisma ./prisma/
+# Copy source files and config files
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+COPY backend/prisma ./prisma
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Copy the rest of the application
-COPY backend/ .
-
-# Build the application
+# Build TypeScript files (excluding tests)
 RUN npm run build
+
+# Clean up development dependencies and test files
+RUN rm -rf src/tests && \
+    npm prune --production
 
 ENV NODE_ENV=production
 ENV PORT=3001
