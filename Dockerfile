@@ -8,8 +8,8 @@ COPY backend/package*.json ./
 # Copy prisma directory from backend
 COPY backend/prisma ./prisma/
 
-# Install dependencies
-RUN npm install
+# Install dependencies including devDependencies
+RUN npm install --production=false
 
 # Generate Prisma Client
 RUN npx prisma generate
@@ -19,6 +19,9 @@ COPY backend/ .
 
 # Build the application
 RUN npm run build
+
+# Clean up devDependencies
+RUN npm prune --production
 
 EXPOSE 3001
 
