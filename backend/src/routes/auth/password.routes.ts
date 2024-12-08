@@ -58,13 +58,7 @@ router.post('/forgot-password', async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: 'Password Reset Request',
-      text: `To reset your password, click the following link: ${resetUrl}`,
-      html: `
-        <p>You requested a password reset.</p>
-        <p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>This link will expire in 1 hour.</p>
-      `,
+      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password</p>`,
     });
 
     res.json({ message: 'If your email exists in our system, you will receive a password reset link' });
@@ -116,6 +110,10 @@ router.post('/reset-password', async (req, res) => {
 
 // Change password (authenticated users)
 router.post('/change-password', authenticateToken, async (req, res) => {
+  if (!req.user) {
+    throw new Error('User not authenticated');
+  }
+
   try {
     const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
 

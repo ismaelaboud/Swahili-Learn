@@ -38,6 +38,9 @@ router.post('/lessons/:lessonId/content',
   authenticateToken,
   validateInstructor,
   async (req, res) => {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     try {
       const { lessonId } = req.params;
       const contentData = req.body;
@@ -88,6 +91,9 @@ router.post('/lessons/:lessonId/content',
 router.get('/lessons/:lessonId/content',
   authenticateToken,
   async (req, res) => {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     try {
       const { lessonId } = req.params;
 
@@ -129,6 +135,9 @@ router.get('/lessons/:lessonId/content',
 router.post('/lessons/:lessonId/progress',
   authenticateToken,
   async (req, res) => {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     try {
       const { lessonId } = req.params;
       const { completed } = req.body;

@@ -104,9 +104,14 @@ router.get('/instructor', authenticateToken, async (req, res) => {
         title: true,
         description: true,
         published: true,
-        image: true,  
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        instructor: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       },
       orderBy: {
         createdAt: 'desc',
@@ -245,8 +250,8 @@ router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
       data: {
         userId: req.user?.id!,
         courseId: courseId,
-        status: 'ACTIVE',
-        enrolledDate: new Date()  
+        status: 'IN_PROGRESS',
+        progress: 0
       }
     });
 

@@ -102,17 +102,10 @@ router.post('/register', async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    logger.error('Registration error:', error);
-    
-    if (error.code === 'P2002') {
-      return res.status(400).json({ 
-        message: 'A user with this email already exists' 
-      });
-    }
-    
+    logger.error('Error in user registration:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
-      message: 'Something went wrong during registration',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Registration failed', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
     });
   }
 });
@@ -162,10 +155,10 @@ router.post('/login', async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    logger.error('Login error:', error);
+    logger.error('Error in user login:', error instanceof Error ? error.message : 'Unknown error');
     res.status(500).json({ 
-      message: 'Something went wrong during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Login failed', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
     });
   }
 });
