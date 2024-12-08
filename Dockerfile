@@ -4,10 +4,10 @@ WORKDIR /app
 
 # Copy package files first
 COPY backend/package*.json ./
+COPY backend/.npmrc ./
 
-# Install dependencies including Prisma
-RUN npm install --legacy-peer-deps && \
-    npm install prisma @prisma/client
+# Install dependencies
+RUN npm install --legacy-peer-deps
 
 # Copy prisma schema
 COPY backend/prisma ./prisma/
