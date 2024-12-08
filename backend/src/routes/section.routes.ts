@@ -9,6 +9,9 @@ const prisma = new PrismaClient();
 // Create a new section
 router.post('/:courseId', authenticateToken, validateInstructor, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { courseId } = req.params;
     const { title, description } = req.body;
 
@@ -61,6 +64,9 @@ router.post('/:courseId', authenticateToken, validateInstructor, async (req, res
 // Get all sections for a course
 router.get('/:courseId', authenticateToken, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { courseId } = req.params;
 
     const sections = await prisma.section.findMany({
@@ -86,6 +92,9 @@ router.get('/:courseId', authenticateToken, async (req, res) => {
 // Update a section
 router.patch('/:sectionId', authenticateToken, validateInstructor, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { sectionId } = req.params;
     const { title, description } = req.body;
 
@@ -122,6 +131,9 @@ router.patch('/:sectionId', authenticateToken, validateInstructor, async (req, r
 // Delete a section
 router.delete('/:sectionId', authenticateToken, validateInstructor, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { sectionId } = req.params;
 
     // Verify section exists and user owns the course
@@ -172,6 +184,9 @@ router.delete('/:sectionId', authenticateToken, validateInstructor, async (req, 
 // Reorder sections
 router.patch('/:courseId/reorder', authenticateToken, validateInstructor, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { courseId } = req.params;
     const { sectionIds } = req.body;
 

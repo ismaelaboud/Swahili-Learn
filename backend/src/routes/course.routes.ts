@@ -89,23 +89,24 @@ router.get('/published', authenticateToken, async (req, res) => {
 // Get instructor's courses
 router.get('/instructor', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.user) {
+      throw new Error('User not authenticated');
     }
+    const userId = req.user.id;
 
     const courses = await prisma.course.findMany({
       where: {
-        instructorId: userId,
+        published: true,
+        instructorId: req.user?.id
       },
-      include: {
-        _count: {
-          select: {
-            sections: true,
-            enrollments: true,
-          },
-        },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        published: true,
+        image: true,  
+        createdAt: true,
+        updatedAt: true
       },
       orderBy: {
         createdAt: 'desc',
@@ -124,14 +125,14 @@ router.get('/public', async (req, res) => {
   try {
     const courses = await prisma.course.findMany({
       where: {
-        isPublished: true,
+        published: true,
       },
       select: {
         id: true,
         title: true,
         description: true,
         imageUrl: true,
-        isPublished: true,
+        published: true,
         createdAt: true,
         _count: {
           select: {
@@ -161,7 +162,10 @@ router.get('/:courseId', async (req, res, next) => {
     logger.info('Fetching course details:', { courseId, userId });
 
     const course = await prisma.course.findUnique({
-      where: { id: courseId },
+      where: { 
+        id: courseId,
+        published: true
+      },
       include: {
         instructor: {
           select: {
@@ -206,6 +210,9 @@ router.get('/:courseId', async (req, res, next) => {
 // Enroll in a course
 router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
   try {
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
     const { courseId } = req.params;
     const userId = req.user.id;
 
@@ -213,7 +220,7 @@ router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
     const course = await prisma.course.findUnique({
       where: { 
         id: courseId,
-        isPublished: true,
+        published: true
       },
     });
 
@@ -236,10 +243,11 @@ router.post('/:courseId/enroll', authenticateToken, async (req, res) => {
     // Create enrollment
     const enrollment = await prisma.enrollment.create({
       data: {
-        courseId,
-        userId,
-        enrolledAt: new Date(),
-      },
+        userId: req.user?.id!,
+        courseId: courseId,
+        status: 'ACTIVE',
+        enrolledDate: new Date()  
+      }
     });
 
     res.json(enrollment);
