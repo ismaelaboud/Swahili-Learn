@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth';
 import { validateInstructor } from '../middleware/roles';
+import logger from '../utils/logger';
+import { prisma } from '../db';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Create a new section
 router.post('/:courseId', authenticateToken, validateInstructor, async (req, res) => {

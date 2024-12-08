@@ -1,8 +1,9 @@
 import express from 'express';
-import { authenticateToken, validateInstructor } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
+import { validateInstructor } from '../middleware/roles';
 import { prisma } from '../db';
 import { z } from 'zod';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 const router = express.Router();
 
