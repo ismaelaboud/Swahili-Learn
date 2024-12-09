@@ -3,9 +3,5 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 numReplicas = 1
-
-[phases.setup]
-nixPkgs = ["nodejs", "npm"]
