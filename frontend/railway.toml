@@ -1,7 +1,11 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "Dockerfile.frontend"
 
 [deploy]
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
 numReplicas = 1
+
+[phases.setup]
+nixPkgs = ["nodejs", "npm"]
