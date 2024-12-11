@@ -47,7 +47,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@shadcn/ui": "^0.8.0",
+    "@shadcn/ui": "^0.0.4",
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
     "autoprefixer": "^10.4.17",
