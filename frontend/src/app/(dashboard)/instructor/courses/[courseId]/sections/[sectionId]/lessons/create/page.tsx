@@ -179,7 +179,7 @@ export default function CreateLesson({ params }: Props) {
             {type === 'TEXT' && (
               <div className="space-y-4">
                 <RichTextEditor
-                  value={content}
+                  content={content}
                   onChange={(value) => setContent(value)}
                 />
               </div>

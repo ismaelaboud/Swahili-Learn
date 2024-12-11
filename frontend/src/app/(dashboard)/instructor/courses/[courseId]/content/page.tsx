@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,27 +9,28 @@ import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import CourseTemplateForm from '@/components/course/CourseTemplateForm';
 import { getCookie } from '@/lib/cookies';
+import { PageProps } from '@/types';
 
-interface Props {
-  params: {
-    courseId: string;
-  };
-}
-
-export default function CourseContent({ params }: Props) {
+export default function CourseContent({ params }: PageProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [courseData, setCourseData] = useState<any>(null);
+  const [courseId, setCourseId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCourseData();
-  }, []);
+    const fetchCourseId = async () => {
+      const resolvedParams = await params;
+      setCourseId(resolvedParams.courseId);
+    };
+    fetchCourseId();
+  }, [params]);
 
-  const fetchCourseData = async () => {
+  const fetchCourseData = useCallback(async () => {
+    if (!courseId) return;
     try {
       setIsLoading(true);
       const token = getCookie('token');
-      const response = await fetch(`/api/courses/${params.courseId}`, {
+      const response = await fetch(`/api/courses/${courseId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -46,12 +47,19 @@ export default function CourseContent({ params }: Props) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [courseId]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchCourseData();
+    };
+    fetchData();
+  }, [fetchCourseData, courseId]);
 
   const handleSaveContent = async (contentData: any) => {
     try {
       const token = getCookie('token');
-      const response = await fetch(`/api/courses/${params.courseId}/content`, {
+      const response = await fetch(`/api/courses/${courseId}/content`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +94,7 @@ export default function CourseContent({ params }: Props) {
           <h1 className="text-3xl font-bold">Course Content</h1>
           <Button
             variant="outline"
-            onClick={() => router.push(`/instructor/courses/${params.courseId}`)}
+            onClick={() => router.push(`/instructor/courses/${courseId}`)}
           >
             Back to Course
           </Button>

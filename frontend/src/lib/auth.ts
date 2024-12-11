@@ -108,7 +108,7 @@ export const register = async (
       email: email.trim(),
       password,
       name: name.trim(),
-      role
+      role: role === 'ADMIN' ? 'INSTRUCTOR' : role
     };
 
     console.log('Sending registration request with data:', {

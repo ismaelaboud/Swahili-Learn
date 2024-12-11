@@ -8,6 +8,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Loader2, BookOpen, Users, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 interface Course {
   id: string;
@@ -92,9 +93,11 @@ export default function InstructorCoursesPage() {
               <CardContent className="p-6">
                 <div className="aspect-video relative mb-4 rounded-lg overflow-hidden bg-gray-100">
                   {course.imageUrl ? (
-                    <img
+                    <Image
                       src={course.imageUrl}
                       alt={course.title}
+                      width={400}
+                      height={225}
                       className="object-cover w-full h-full"
                     />
                   ) : (

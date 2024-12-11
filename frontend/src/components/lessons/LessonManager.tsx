@@ -31,7 +31,7 @@ interface LessonManagerProps {
   initialLessons?: Lesson[];
 }
 
-export default function LessonManager({ sectionId, courseId, initialLessons = [] }: LessonManagerProps) {
+export const LessonManager = ({ sectionId, courseId, initialLessons = [] }: LessonManagerProps) => {
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [newLessonContent, setNewLessonContent] = useState('');

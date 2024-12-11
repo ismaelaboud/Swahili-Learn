@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,11 +42,7 @@ export default function SectionEditor({ params }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    fetchSection();
-  }, []);
-
-  const fetchSection = async () => {
+  const fetchSection = useCallback(async () => {
     try {
       setIsLoading(true);
       const token = getCookie('token');
@@ -74,7 +70,14 @@ export default function SectionEditor({ params }: Props) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.courseId, params.sectionId, router]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchSection();
+    };
+    fetchData();
+  }, [fetchSection]);
 
   const handleSave = async () => {
     try {

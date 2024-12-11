@@ -1,4 +1,4 @@
-FROM node:18.19.0
+FROM node:18.19.0-alpine
 
 WORKDIR /app
 
@@ -14,7 +14,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Start the application
-CMD ["npm", "start"]
-
+# Expose the port the app runs on
 EXPOSE 3000
+
+# Start the application
+CMD ["npm", "run", "start"]

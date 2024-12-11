@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, PlayCircle, BookOpen, Code } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CourseContentPreviewProps {
   content: any;

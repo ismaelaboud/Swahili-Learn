@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,11 +36,7 @@ export default function CourseEditor({ params }: Props) {
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchSections();
-  }, []);
-
-  const fetchSections = async () => {
+  const fetchSections = useCallback(async () => {
     try {
       setIsLoading(true);
       const token = getCookie('token');
@@ -57,11 +53,18 @@ export default function CourseEditor({ params }: Props) {
       const data = await response.json();
       setSections(data);
     } catch (error) {
-      toast.error('Failed to load course sections');
+      toast.error('Failed to load sections');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.courseId]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchSections();
+    };
+    fetchData();
+  }, [fetchSections, params.courseId]);
 
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;

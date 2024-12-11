@@ -30,7 +30,7 @@ interface SectionManagerProps {
   initialSections?: Section[];
 }
 
-export default function SectionManager({ courseId, initialSections = [] }: SectionManagerProps) {
+export const SectionManager = ({ courseId, initialSections = [] }: SectionManagerProps) => {
   const [sections, setSections] = useState<Section[]>(initialSections);
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionDescription, setNewSectionDescription] = useState('');

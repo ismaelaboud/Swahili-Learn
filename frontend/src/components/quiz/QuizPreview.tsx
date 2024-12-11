@@ -96,7 +96,7 @@ export default function QuizPreview({ content, onComplete }: QuizPreviewProps) {
                   }}
                   className="space-y-2"
                 >
-                  {(question.type === 'true_false' ? ['true', 'false'] : question.options).map(
+                  {(question?.type === 'true_false' ? ['true', 'false'] : question?.options || []).map(
                     (option, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <RadioGroupItem

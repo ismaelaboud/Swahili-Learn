@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { getCookie } from '@/lib/cookies';
 import ShineBorder from "@/components/magicui/shine-border";
+import Image from 'next/image';
 
 interface Course {
   id: string;
@@ -96,13 +97,17 @@ export default function ExploreCourses() {
             shouldHover={true}
           >
             <div className="flex h-full flex-col bg-card p-6 rounded-lg">
-              {course.imageUrl && (
-                <div className="aspect-video relative mb-4 rounded-lg overflow-hidden">
-                  <img
-                    src={course.imageUrl}
-                    alt={course.title}
-                    className="object-cover w-full h-full"
-                  />
+              {course.imageUrl ? (
+                <Image
+                  src={course.imageUrl}
+                  alt={course.title}
+                  width={400}
+                  height={225}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <BookOpen className="w-12 h-12" />
                 </div>
               )}
               <div className="flex-1">

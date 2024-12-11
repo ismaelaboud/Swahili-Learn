@@ -48,15 +48,18 @@ export async function fetchApi(endpoint: string, options: FetchOptions = {}) {
     throw new Error('Not authenticated');
   }
 
-  const defaultOptions: RequestInit = {
+  const defaultOptions: RequestInit & { token?: string; next?: NextFetchRequestConfig } = {
     method: options.method || 'GET',
-    credentials: 'include',
-    mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...options.headers
     },
+    credentials: 'include' as RequestCredentials,
+    mode: 'cors' as RequestMode,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    cache: 'no-store' as RequestCache,
+    next: { revalidate: 0 }
   };
 
   // Handle the request body
@@ -82,7 +85,7 @@ export async function fetchApi(endpoint: string, options: FetchOptions = {}) {
       });
     } catch (e) {
       console.error('Failed to process request body:', e);
-      throw new Error('Failed to process request body: ' + e.message);
+      throw new Error(`Failed to process request body: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -91,8 +94,8 @@ export async function fetchApi(endpoint: string, options: FetchOptions = {}) {
       ...defaultOptions,
       ...options,
       // Ensure these critical options are not overridden
-      credentials: 'include',
-      mode: 'cors',
+      credentials: 'include' as RequestCredentials,
+      mode: 'cors' as RequestMode,
       headers: {
         ...defaultOptions.headers,
         ...options.headers,

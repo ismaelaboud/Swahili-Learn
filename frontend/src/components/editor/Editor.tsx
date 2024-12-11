@@ -5,8 +5,6 @@ import dynamic from 'next/dynamic';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { lowlight } from 'lowlight';
 import { Toggle } from '@/components/ui/toggle';
 import {
   Bold,
@@ -41,9 +39,6 @@ export function Editor({ value, onChange, placeholder = 'Start writing...' }: Ed
       }),
       Placeholder.configure({
         placeholder,
-      }),
-      CodeBlockLowlight.configure({
-        lowlight,
       }),
     ],
     content: value,

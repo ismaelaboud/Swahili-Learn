@@ -3,11 +3,11 @@
 import { cn } from "@/lib/utils";
 import { HTMLAttributes } from "react";
 
-interface ShineBorderProps extends HTMLAttributes<HTMLDivElement> {
+interface ShineBorderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'color'> {
   borderWidth?: string;
   duration?: number;
   delay?: number;
-  color?: string[];
+  color?: string | string[];
   className?: string;
   children?: React.ReactNode;
   background?: string;
@@ -25,7 +25,7 @@ export default function ShineBorder({
   shouldHover = true,
   ...props
 }: ShineBorderProps) {
-  const gradientColors = color.map((c) => `${c}33`).join(", "); // 33 is 20% opacity in hex
+  const gradientColors = Array.isArray(color) ? color.map((c) => `${c}33`).join(", ") : `${color}33`; // 33 is 20% opacity in hex
 
   return (
     <div
@@ -37,7 +37,7 @@ export default function ShineBorder({
         className
       )}
       style={{
-        "--border-gradient": `linear-gradient(to right, ${color.join(", ")})`,
+        "--border-gradient": Array.isArray(color) ? `linear-gradient(to right, ${color.join(", ")})` : `linear-gradient(to right, ${color})`,
         "--shine-gradient": `linear-gradient(to right, transparent, ${gradientColors}, transparent)`,
       } as React.CSSProperties}
       {...props}

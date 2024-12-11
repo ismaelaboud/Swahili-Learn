@@ -15,6 +15,7 @@ export const courseSchema = z.object({
   isPublished: z.boolean().default(false),
   thumbnail: z.string().url().optional(),
   previewVideo: z.string().url().optional(),
+  imageUrl: z.string().url().optional(),
 });
 
 export const sectionSchema = z.object({
@@ -24,7 +25,7 @@ export const sectionSchema = z.object({
   description: z.string()
     .max(500, 'Description cannot exceed 500 characters')
     .optional(),
-  order: z.number().int().min(0),
+  order: z.number().int().min(0).optional(),
 });
 
 export const lessonSchema = z.object({
@@ -49,7 +50,15 @@ export const lessonSchema = z.object({
 });
 
 export type Course = z.infer<typeof courseSchema>;
-export type Section = z.infer<typeof sectionSchema>;
+export type Section = {
+  id?: string;
+  title: string;
+  description?: string;
+  order?: number;
+  courseId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 export type Lesson = z.infer<typeof lessonSchema>;
 
 // Custom error messages for form validation
