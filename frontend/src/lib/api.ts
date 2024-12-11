@@ -1,6 +1,6 @@
 import { getCookie } from './cookies';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lms-system-production.up.railway.app';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://swahili-learn-production.up.railway.app';
 
 const initializeApiUrl = async () => {
   return API_URL;
