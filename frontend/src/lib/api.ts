@@ -1,34 +1,8 @@
 import { getCookie } from './cookies';
 
-const getApiUrl = async () => {
-  // Try ports 3001, 3002, and 3003
-  const ports = [3001, 3002, 3003];
-  
-  for (const port of ports) {
-    try {
-      const response = await fetch(`http://localhost:${port}/health`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-      
-      if (response.ok) {
-        return `http://localhost:${port}`;
-      }
-    } catch (error) {
-      console.log(`Port ${port} not available`);
-    }
-  }
-  
-  // Default to 3001 if no ports respond
-  return 'http://localhost:3001';
-};
-
-let API_URL: string | null = null;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lms-system-production.up.railway.app';
 
 const initializeApiUrl = async () => {
-  if (!API_URL) {
-    API_URL = await getApiUrl();
-  }
   return API_URL;
 };
 
