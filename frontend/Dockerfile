@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with npm ci and ignore errors for specific packages
-RUN npm ci --ignore-scripts || true
+# Update package lock file and install dependencies
+RUN npm install
 
 # Copy the rest of the application
 COPY . .
